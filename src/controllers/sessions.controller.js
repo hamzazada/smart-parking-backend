@@ -6,6 +6,7 @@ import Notification from '../models/notification.model.js';
 
 // ─────────────────────────────────────────────────────────────
 // GET /api/v1/sessions/active
+// Returns ONLY current user's active sessions
 // ─────────────────────────────────────────────────────────────
 export async function listActiveSessions(req, res, next) {
   try {
@@ -14,6 +15,19 @@ export async function listActiveSessions(req, res, next) {
       .sort({ start: -1 })
       .lean({ virtuals: true });
     res.json({ success: true, data: sessions.map(enrichSession) });
+  } catch (err) { next(err); }
+}
+
+// ─────────────────────────────────────────────────────────────
+// ✅ NEW: GET /api/v1/sessions/occupied-slots
+// Returns ALL occupied slot IDs from ALL users — no private data
+// Used by book page so every user sees which slots are taken
+// ─────────────────────────────────────────────────────────────
+export async function getOccupiedSlots(req, res, next) {
+  try {
+    const activeSessions = await Session.find({ status: 'Active' }, 'slot').lean();
+    const occupiedSlots  = [...new Set(activeSessions.map(s => s.slot).filter(Boolean))];
+    res.json({ success: true, data: occupiedSlots });
   } catch (err) { next(err); }
 }
 
@@ -84,7 +98,6 @@ export async function createSession(req, res, next) {
       user: userId, vehiclePlate, slot, start: new Date(), status: 'Active', feePerHour: 50,
     });
 
-    // Mark vehicle Active
     try {
       await Vehicle.findOneAndUpdate(
         { user: userId, plate: vehiclePlate.toUpperCase() },
@@ -141,8 +154,6 @@ export async function updateSession(req, res, next) {
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/v1/sessions/:id/complete
-// ── FIX 1: resets Vehicle → Idle
-// ── FIX 2: syncs Booking amount + status so money is saved
 // ─────────────────────────────────────────────────────────────
 export async function completeSession(req, res, next) {
   try {
@@ -160,13 +171,11 @@ export async function completeSession(req, res, next) {
 
     session.end    = new Date();
     session.status = 'Completed';
-    await session.save(); // pre-save hook calculates totalFee
+    await session.save();
 
-    // Calculate fee for syncing (PKR 50/hr)
     const durationHours = Math.max(0.1, (session.end - session.start) / 3600000);
     const fee           = parseFloat((durationHours * 50).toFixed(2));
 
-    // ── FIX 1: Vehicle → Idle ────────────────────────────
     try {
       await Vehicle.findOneAndUpdate(
         { user: session.user, plate: session.vehiclePlate.toUpperCase() },
@@ -174,7 +183,6 @@ export async function completeSession(req, res, next) {
       );
     } catch (e) { console.error('Vehicle reset failed:', e.message); }
 
-    // ── FIX 2: Sync linked Booking + capture bookingId ───
     let resolvedBookingId = session.bookingId || null;
     try {
       const booking = await Booking.findOne({
@@ -188,11 +196,10 @@ export async function completeSession(req, res, next) {
       if (booking) {
         booking.end    = session.end;
         booking.status = 'Completed';
-        booking.amount = 0; // keep 0 — payment controller sets the real amount when user pays
+        booking.amount = 0;
         await booking.save();
-        resolvedBookingId = booking._id; // always capture it
+        resolvedBookingId = booking._id;
 
-        // Also store on session for future lookups
         if (!session.bookingId) {
           session.bookingId = booking._id;
           await session.save();
@@ -200,7 +207,6 @@ export async function completeSession(req, res, next) {
       }
     } catch (e) { console.error('Booking sync failed:', e.message); }
 
-    // ── Notification ─────────────────────────────────────
     try {
       await Notification.create({
         user:  session.user,
@@ -210,7 +216,6 @@ export async function completeSession(req, res, next) {
       });
     } catch (e) { console.error('Notification failed:', e.message); }
 
-    // Always include bookingId in response so frontend can open payment modal
     const sessionData = enrichSession(session.toJSON());
     res.json({ success: true, data: { ...sessionData, bookingId: resolvedBookingId } });
   } catch (err) { next(err); }
@@ -218,8 +223,6 @@ export async function completeSession(req, res, next) {
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/v1/sessions/:id/reopen
-// Restores a just-completed session back to Active
-// Used when user closes payment modal without paying
 // ─────────────────────────────────────────────────────────────
 export async function reopenSession(req, res, next) {
   try {
@@ -234,13 +237,11 @@ export async function reopenSession(req, res, next) {
       return res.status(400).json({ success: false, message: 'Only completed sessions can be reopened' });
     }
 
-    // Restore session to Active
-    session.end    = null;
-    session.status = 'Active';
+    session.end      = null;
+    session.status   = 'Active';
     session.totalFee = 0;
     await session.save();
 
-    // Restore booking to Active with amount 0
     try {
       const booking = await Booking.findOne({
         $or: [
@@ -256,7 +257,6 @@ export async function reopenSession(req, res, next) {
       }
     } catch (e) { console.error('Booking reopen failed:', e.message); }
 
-    // Restore vehicle to Active
     try {
       await Vehicle.findOneAndUpdate(
         { user: session.user, plate: session.vehiclePlate.toUpperCase() },
@@ -268,7 +268,8 @@ export async function reopenSession(req, res, next) {
   } catch (err) { next(err); }
 }
 
-
+// ─────────────────────────────────────────────────────────────
+// POST /api/v1/sessions/:id/extend
 // ─────────────────────────────────────────────────────────────
 export async function extendSession(req, res, next) {
   try {
@@ -297,7 +298,7 @@ export async function extendSession(req, res, next) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Helper: inject live durationMinutes & currentFee
+// Helper
 // ─────────────────────────────────────────────────────────────
 function enrichSession(s) {
   const end             = s.end || new Date();

@@ -189,9 +189,9 @@ export async function completeBooking(req, res, next) {
     if (booking.status !== 'Active')
       return res.status(400).json({ success: false, message: 'Only active bookings can be completed' });
 
-    if (!booking.checkInTime)
-      return res.status(400).json({ success: false, message: 'Booking was never checked in — cannot complete' });
-
+   if (!booking.checkInTime) {
+  booking.checkInTime = booking.start;
+}
     booking.end    = new Date();
     booking.status = 'Completed';
 

@@ -6,16 +6,19 @@ import {
   cancelBooking,
   completeBooking,
   anprCheckIn,
+  getReservedSlots,
 } from '../../controllers/bookings.controller.js';
 import { verifyAuth } from '../../middlewares/verifyAuth.js';
 
 const router = express.Router();
 
+// ⚠️ specific routes MUST come before /:id routes
+router.get('/reserved-slots',       verifyAuth, getReservedSlots);  // all reserved slots (cross-user)
 router.get('/',                     verifyAuth, listBookings);
 router.post('/',                    verifyAuth, createBooking);
-router.patch('/:id/checkin',        verifyAuth, checkInBooking);   // manual check-in
+router.post('/anpr-checkin',        verifyAuth, anprCheckIn);
+router.patch('/:id/checkin',        verifyAuth, checkInBooking);
 router.patch('/:id/cancel',         verifyAuth, cancelBooking);
 router.patch('/:id/complete',       verifyAuth, completeBooking);
-router.post('/anpr-checkin',        verifyAuth, anprCheckIn);      // Pi ANPR auto check-in
 
 export default router;

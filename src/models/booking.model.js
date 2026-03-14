@@ -19,9 +19,9 @@ const BookingSchema = new mongoose.Schema({
   checkInTime: { type: Date, default: null },
 
   // How check-in happened
-  checkInMethod: {
+ checkInMethod: {
     type:    String,
-    enum:    ['manual', 'anpr', 'admin'],
+    enum:    ['manual', 'anpr', 'admin', null],
     default: null,
   },
 

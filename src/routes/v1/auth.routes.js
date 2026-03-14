@@ -3,6 +3,7 @@ import express  from 'express';
 import axios    from 'axios';
 import { register, login, getMe, googleCallback, githubCallback } from '../../controllers/auth.controller.js';
 import { verifyAuth } from '../../middlewares/verifyAuth.js';
+import { forgotPassword, resetPassword } from '../../controllers/auth.controller.js';
 
 const router = express.Router();
 
@@ -10,6 +11,8 @@ const router = express.Router();
 router.post('/register', register);
 router.post('/login',    login);
 router.get ('/me',       verifyAuth, getMe);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password',  resetPassword);
 
 // ─────────────────────────────────────────────────────────────
 // GOOGLE OAUTH

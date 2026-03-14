@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "main": "src/server.js",
+  "main": "src/index.js",
   "scripts": {
-    "dev": "nodemon src/server.js --watch src",
-    "start": "node src/server.js",
+    "dev": "nodemon src/index.js --watch src",
+    "start": "node src/index.js",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
     "create-admin": "node src/scripts/create-admin.js"
   },

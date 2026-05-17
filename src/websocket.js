@@ -36,7 +36,7 @@ export function broadcastSlotUpdate(data) {
 }
 
 export function initWebSocket(server) {
-  const wss = new WebSocketServer({ server, path: '/ws' });
+ const wss = new WebSocketServer({ server });
 
   wss.on('connection', (ws, req) => {
     const parsedUrl = url.parse(req.url, true);

@@ -27,12 +27,12 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:3000',
   'https://smart-parking-frontend-lyart.vercel.app',
-  'https://smart-parking-frontend-wine.vercel.app',
+  'https://smart-parking-api-ingc.onrender.com',
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin) || origin.includes('vercel.app')) {
+    if (!origin || allowedOrigins.includes(origin) || origin.includes('vercel.app') || origin.includes('onrender.com')) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
